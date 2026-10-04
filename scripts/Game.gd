@@ -16,13 +16,14 @@ var count_label: Label
 var comment_label: Label
 var inning_label: Label
 var swing_meter: ProgressBar
+var bases_label: Label
 
 var inning := 1
 var max_innings := 3
 var outs := 0
 var balls := 0
 var strikes := 0
-var bases := [false, false, false]
+var bases := [false, false, false]  # [first, second, third]
 var score := [0, 0]
 var team_name := "RIVERVALE"
 var opponent_name := "PINE GROVE"
@@ -32,7 +33,6 @@ var swing_meter_value := 0.0
 var swing_timer := 0.0
 var game_over := false
 var inning_bottom := false
-var play_result := ""
 
 func _ready() -> void:
 	_build_field()
@@ -159,6 +159,12 @@ func _build_hud() -> void:
 	pitch_label.add_theme_color_override("font_color", Color("7ae582"))
 	hud.add_child(pitch_label)
 
+	bases_label = Label.new()
+	bases_label.position = Vector2(750, 36)
+	bases_label.add_theme_font_size_override("font_size", 18)
+	bases_label.add_theme_color_override("font_color", Color("ffb3ba"))
+	hud.add_child(bases_label)
+
 	status_label = Label.new()
 	status_label.position = Vector2(900, 34)
 	status_label.add_theme_font_size_override("font_size", 22)
@@ -186,7 +192,15 @@ func _update_hud() -> void:
 	inning_label.text = "TOP %d" % inning if not inning_bottom else "BOT %d" % inning
 	score_label.text = "%s %d  -  %s %d" % [team_name, score[0], opponent_name, score[1]]
 	count_label.text = "BALLS %d  STRIKES %d  OUTS %d" % [balls, strikes, outs]
-	status_label.text = status_label.text if status_label.text != "" else "Play in progress"
+	
+	var bases_str := ""
+	if bases[0]:
+		bases_str += "1B "
+	if bases[1]:
+		bases_str += "2B "
+	if bases[2]:
+		bases_str += "3B"
+	bases_label.text = "Bases: " + (bases_str if bases_str != "" else "empty")
 
 func _start_pitch_cycle() -> void:
 	current_pitch = PITCHES[randi() % PITCHES.size()]
@@ -194,7 +208,6 @@ func _start_pitch_cycle() -> void:
 	swing_window_active = true
 	swing_meter.value = 0.0
 	swing_timer = 0.0
-	play_result = ""
 	status_label.text = "Timing window open"
 	commentary.emit("The pitcher winds up on the %s." % current_pitch, "teammate")
 
@@ -204,9 +217,9 @@ func _process(delta: float) -> void:
 
 	if swing_window_active:
 		swing_timer += delta
-		swing_meter_value = sin(swing_timer * 12.0) * 0.5 + 0.5
+		swing_meter_value = sin(swing_timer * 6.0) * 0.5 + 0.5
 		swing_meter.value = swing_meter_value
-		if swing_timer > 1.7:
+		if swing_timer > 2.5:
 			swing_window_active = false
 			_resolve_pitch_result(false)
 
@@ -221,21 +234,21 @@ func _handle_swing() -> void:
 		return
 
 	var timing_score: float = absf(swing_meter_value - 0.5)
-	if timing_score <= 0.25:
+	if timing_score <= 0.35:
 		_resolve_hit(_choose_hit_result())
 	else:
 		_resolve_pitch_result(false)
 
 func _choose_hit_result() -> String:
 	var roll := randf()
-	if roll < 0.3:
+	if roll < 0.25:
 		return "single"
-	elif roll < 0.55:
+	elif roll < 0.45:
 		return "double"
-	elif roll < 0.75:
+	elif roll < 0.65:
+		return "ground_ball"
+	elif roll < 0.85:
 		return "fly_ball"
-	elif roll < 0.92:
-		return "triple"
 	return "home_run"
 
 func _resolve_pitch_result(made_contact: bool) -> void:
@@ -256,7 +269,6 @@ func _resolve_pitch_result(made_contact: bool) -> void:
 	else:
 		status_label.text = "Missed it!"
 		_set_commentary("The bench chants, 'Keep it moving!' ")
-		commentary.emit("The crowd shifts, waiting for the next pitch.", "crowd")
 
 	_update_hud()
 
@@ -273,22 +285,41 @@ func _resolve_hit(hit_type: String) -> void:
 	match hit_type:
 		"single":
 			hit_strength = 1
-			result_text = "Single up the middle!"
+			result_text = "SINGLE! Runner on first!"
 		"double":
 			hit_strength = 2
-			result_text = "Double! The crowd erupts!"
+			result_text = "DOUBLE! Ball in the gap!"
 		"triple":
 			hit_strength = 3
-			result_text = "Triple! She motors around!"
+			result_text = "TRIPLE! She's flying around!"
 		"home_run":
 			hit_strength = 4
-			result_text = "Home run! The bleachers are loud!"
+			result_text = "HOME RUN! The bleachers erupt!"
 		"fly_ball":
-			hit_strength = 1
-			result_text = "Fly ball! The field is chasing it!"
+			result_text = "Fly ball! Caught for an out."
+			outs += 1
+			status_label.text = result_text
+			_set_commentary("A parent sighs, 'That's baseball.' ")
+			_update_hud()
+			if outs >= 3:
+				_advance_inning()
+			else:
+				_start_pitch_cycle()
+			return
+		"ground_ball":
+			result_text = "Ground ball! Out at first."
+			outs += 1
+			status_label.text = result_text
+			_set_commentary("A parent says, 'Next time, next time.' ")
+			_update_hud()
+			if outs >= 3:
+				_advance_inning()
+			else:
+				_start_pitch_cycle()
+			return
 		_:
 			hit_strength = 1
-			result_text = "Ground ball!"
+			result_text = "Hit!"
 
 	status_label.text = result_text
 	_advance_runners(hit_strength)
@@ -305,18 +336,13 @@ func _advance_runners(hit_strength: int) -> void:
 		runs_scored += 1 + int(bases[0]) + int(bases[1]) + int(bases[2])
 		bases = [false, false, false]
 	else:
-		for idx in range(3):
+		for idx in range(2, -1, -1):
 			if bases[idx]:
 				var destination := idx + hit_strength
 				if destination >= 3:
 					runs_scored += 1
 				else:
 					next_bases[destination] = true
-
-		if hit_strength >= 3:
-			if bases[2]:
-				runs_scored += 1
-				bases[2] = false
 
 		if hit_strength == 1:
 			next_bases[0] = true
