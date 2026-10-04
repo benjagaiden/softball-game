@@ -1,7 +1,6 @@
 extends Node2D
 
 const PITCHES := ["fastball", "riseball", "curveball", "dropball", "screwball"]
-const HIT_TYPES := ["single", "double", "triple", "home_run", "ground_ball", "fly_ball"]
 
 var commentary: Node
 var field: Node2D
@@ -192,7 +191,7 @@ func _update_hud() -> void:
 	inning_label.text = "TOP %d" % inning if not inning_bottom else "BOT %d" % inning
 	score_label.text = "%s %d  -  %s %d" % [team_name, score[0], opponent_name, score[1]]
 	count_label.text = "BALLS %d  STRIKES %d  OUTS %d" % [balls, strikes, outs]
-	
+
 	var bases_str := ""
 	if bases[0]:
 		bases_str += "1B "
@@ -234,28 +233,50 @@ func _handle_swing() -> void:
 		return
 
 	var timing_score: float = absf(swing_meter_value - 0.5)
-	if timing_score <= 0.35:
-		_resolve_hit(_choose_hit_result())
+	var contact_quality := 1.0 - timing_score / 0.5
+	if contact_quality > 0.0:
+		_resolve_hit(_choose_hit_result(contact_quality))
 	else:
 		_resolve_pitch_result(false)
 
-func _choose_hit_result() -> String:
+func _choose_hit_result(contact_quality: float) -> String:
 	var roll := randf()
-	if roll < 0.25:
-		return "single"
-	elif roll < 0.45:
+	var quality := clamp(contact_quality, 0.0, 1.0)
+
+	if quality > 0.85:
+		if roll < 0.4:
+			return "home_run"
+		elif roll < 0.7:
+			return "triple"
 		return "double"
-	elif roll < 0.65:
-		return "ground_ball"
-	elif roll < 0.85:
+	elif quality > 0.65:
+		if roll < 0.25:
+			return "home_run"
+		elif roll < 0.55:
+			return "triple"
+		elif roll < 0.8:
+			return "double"
+		return "single"
+	elif quality > 0.45:
+		if roll < 0.2:
+			return "double"
+		elif roll < 0.5:
+			return "single"
+		elif roll < 0.75:
+			return "ground_ball"
 		return "fly_ball"
-	return "home_run"
+	else:
+		if roll < 0.35:
+			return "single"
+		elif roll < 0.65:
+			return "ground_ball"
+		return "fly_ball"
 
 func _resolve_pitch_result(made_contact: bool) -> void:
 	swing_window_active = false
 
 	if made_contact:
-		_resolve_hit(_choose_hit_result())
+		_resolve_hit(_choose_hit_result(0.5))
 		return
 
 	strikes += 1
