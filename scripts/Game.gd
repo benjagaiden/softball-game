@@ -300,6 +300,20 @@ func _resolve_pitch_result(made_contact: bool) -> void:
 
 func _resolve_hit(hit_type: String) -> void:
 	swing_window_active = false
+
+	var fielding_result := _resolve_fielding_result(hit_type)
+	if fielding_result == "caught":
+		outs += 1
+		status_label.text = "Out! " + _fielding_call_text(hit_type)
+		_set_commentary("The fielders lock it down and the crowd leans in.")
+		commentary.emit("A defender makes a clean play and the dugout exhales.", "teammate")
+		_update_hud()
+		if outs >= 3:
+			_advance_inning()
+		else:
+			_start_pitch_cycle()
+		return
+
 	var hit_strength := 1
 	var result_text := ""
 
@@ -317,27 +331,11 @@ func _resolve_hit(hit_type: String) -> void:
 			hit_strength = 4
 			result_text = "HOME RUN! The bleachers erupt!"
 		"fly_ball":
-			result_text = "Fly ball! Caught for an out."
-			outs += 1
-			status_label.text = result_text
-			_set_commentary("A parent sighs, 'That's baseball.' ")
-			_update_hud()
-			if outs >= 3:
-				_advance_inning()
-			else:
-				_start_pitch_cycle()
-			return
+			hit_strength = 1
+			result_text = "Lucky bounce! Safe!"
 		"ground_ball":
-			result_text = "Ground ball! Out at first."
-			outs += 1
-			status_label.text = result_text
-			_set_commentary("A parent says, 'Next time, next time.' ")
-			_update_hud()
-			if outs >= 3:
-				_advance_inning()
-			else:
-				_start_pitch_cycle()
-			return
+			hit_strength = 1
+			result_text = "Grounder gets through! Safe!"
 		_:
 			hit_strength = 1
 			result_text = "Hit!"
@@ -348,6 +346,42 @@ func _resolve_hit(hit_type: String) -> void:
 	commentary.emit("A parent in the bleachers laughs, 'You can hear this whole town cheering!'", "parent")
 	_update_hud()
 	_start_pitch_cycle()
+
+func _resolve_fielding_result(hit_type: String) -> String:
+	var roll := randf()
+
+	match hit_type:
+		"single":
+			return "caught" if roll < 0.15 else "safe"
+		"double":
+			return "caught" if roll < 0.12 else "safe"
+		"triple":
+			return "caught" if roll < 0.10 else "safe"
+		"home_run":
+			return "safe"
+		"fly_ball":
+			return "caught" if roll < 0.70 else "safe"
+		"ground_ball":
+			return "caught" if roll < 0.60 else "safe"
+		_:
+			return "safe"
+
+func _fielding_call_text(hit_type: String) -> String:
+	match hit_type:
+		"fly_ball":
+			return "Caught in the air!"
+		"ground_ball":
+			return "Grounder fielded cleanly!"
+		"single":
+			return "The fielder gets it in time!"
+		"double":
+			return "The cut-off makes the play!"
+		"triple":
+			return "The throw beats the runner!"
+		"home_run":
+			return "No chance at the plate!"
+		_:
+			return "The defense gets the out!"
 
 func _advance_runners(hit_strength: int) -> void:
 	var runs_scored := 0
