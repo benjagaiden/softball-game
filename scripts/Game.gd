@@ -64,6 +64,7 @@ func _ready() -> void:
 		batter_profile.home_run_style = "bat_spin"
 		batter_profile.on_base_style = "arms_up"
 		batter_profile.slide_style = "scoot_left"
+		batter_profile.special_hit_style = "burst_jump"
 		current_player_profile = batter_profile
 
 	if batter != null:
@@ -271,8 +272,9 @@ func _handle_swing() -> void:
 
 	var timing_score: float = absf(swing_meter_value - 0.5)
 	var contact_quality := 1.0 - timing_score / 0.5
+	var special_hit := contact_quality >= 0.82
 	if contact_quality > 0.0:
-		_resolve_hit(_choose_hit_result(contact_quality))
+		_resolve_hit(_choose_hit_result(contact_quality), special_hit)
 	else:
 		_resolve_pitch_result(false)
 
@@ -313,7 +315,7 @@ func _resolve_pitch_result(made_contact: bool) -> void:
 	swing_window_active = false
 
 	if made_contact:
-		_resolve_hit(_choose_hit_result(0.5))
+		_resolve_hit(_choose_hit_result(0.5), true)
 		return
 
 	strikes += 1
@@ -369,7 +371,7 @@ func _trigger_player_celebration(hit_type: String) -> void:
 				crowd_meter.add_cheer(4.0)
 			batter_celebration.trigger_on_base()
 
-func _resolve_hit(hit_type: String) -> void:
+func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 	swing_window_active = false
 
 	var fielding_outcome := _resolve_fielding_result(hit_type)
@@ -411,6 +413,20 @@ func _resolve_hit(hit_type: String) -> void:
 		_:
 			hit_strength = 1
 			result_text = "Hit!"
+
+	if special_hit:
+		if crowd_meter != null:
+			crowd_meter.add_cheer(22.0)
+		if batter_celebration != null:
+			batter_celebration.trigger_special_hit()
+		if hit_type == "home_run":
+			result_text = "SPECIAL HOME RUN! The whole park erupts!"
+		elif hit_type == "triple":
+			result_text = "SPECIAL TRIPLE! She is flying!"
+		elif hit_type == "double":
+			result_text = "SPECIAL DOUBLE! The crowd is roaring!"
+		else:
+			result_text = "SPECIAL HIT! This one's got juice!"
 
 	status_label.text = result_text
 	_advance_runners(hit_strength)
