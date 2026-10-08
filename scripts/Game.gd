@@ -17,6 +17,12 @@ var inning_label: Label
 var swing_meter: ProgressBar
 var bases_label: Label
 
+var crowd_meter: CrowdCheerMeter
+var batter_profile: PlayerProfile
+var batter_celebration: PlayerCelebrationController
+var roster: TeamRoster
+var current_player_profile: PlayerProfile
+
 var inning := 1
 var max_innings := 3
 var outs := 0
@@ -36,8 +42,36 @@ var inning_bottom := false
 func _ready() -> void:
 	_build_field()
 	_build_hud()
+
 	commentary = preload("res://scripts/CommentaryManager.gd").new()
 	add_child(commentary)
+
+	crowd_meter = CrowdCheerMeter.new()
+	add_child(crowd_meter)
+
+	roster = TeamRoster.new()
+	add_child(roster)
+
+	if roster.roster.size() > 0:
+		current_player_profile = roster.roster[0]
+		batter_profile = current_player_profile
+	else:
+		batter_profile = PlayerProfile.new()
+		batter_profile.id = "player_01"
+		batter_profile.name = "MAYA"
+		batter_profile.jersey_color = Color("ffcc66")
+		batter_profile.accent_color = Color("2d6cdf")
+		batter_profile.home_run_style = "bat_spin"
+		batter_profile.on_base_style = "arms_up"
+		batter_profile.slide_style = "scoot_left"
+		current_player_profile = batter_profile
+
+	if batter != null:
+		batter_celebration = preload("res://scripts/PlayerCelebrationController.gd").new()
+		batter.add_child(batter_celebration)
+		batter_celebration.position = Vector2.ZERO
+		batter_celebration.set_profile(batter_profile)
+
 	_set_commentary("Parents in the bleachers: 'This is the fun part!' ")
 	_update_hud()
 	_start_pitch_cycle()
@@ -214,6 +248,9 @@ func _process(delta: float) -> void:
 	if game_over:
 		return
 
+	if crowd_meter != null:
+		crowd_meter.tick(delta)
+
 	if swing_window_active:
 		swing_timer += delta
 		swing_meter_value = sin(swing_timer * 6.0) * 0.5 + 0.5
@@ -298,6 +335,40 @@ func _resolve_pitch_result(made_contact: bool) -> void:
 	else:
 		_start_pitch_cycle()
 
+func _trigger_player_celebration(hit_type: String) -> void:
+	if batter_celebration == null:
+		return
+
+	match hit_type:
+		"home_run":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(30.0)
+			batter_celebration.trigger_home_run()
+		"triple":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(18.0)
+			batter_celebration.trigger_on_base()
+		"double":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(14.0)
+			batter_celebration.trigger_on_base()
+		"single":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(8.0)
+			batter_celebration.trigger_on_base()
+		"fly_ball":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(6.0)
+			batter_celebration.trigger_slide()
+		"ground_ball":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(6.0)
+			batter_celebration.trigger_slide()
+		_:
+			if crowd_meter != null:
+				crowd_meter.add_cheer(4.0)
+			batter_celebration.trigger_on_base()
+
 func _resolve_hit(hit_type: String) -> void:
 	swing_window_active = false
 
@@ -343,6 +414,7 @@ func _resolve_hit(hit_type: String) -> void:
 
 	status_label.text = result_text
 	_advance_runners(hit_strength)
+	_trigger_player_celebration(hit_type)
 	_set_commentary("Teammates are screaming, 'That's a real hit!' ")
 	commentary.emit("A parent in the bleachers laughs, 'You can hear this whole town cheering!'", "parent")
 	_update_hud()
@@ -411,6 +483,8 @@ func _advance_runners(hit_strength: int) -> void:
 
 	score[0] += runs_scored
 	if runs_scored > 0:
+		if crowd_meter != null:
+			crowd_meter.add_cheer(20.0)
 		commentary.emit("The score updates and the dugout is roaring.", "crowd")
 		_set_commentary("Someone in the stands yells, 'There it is! That's why we came!' ")
 
