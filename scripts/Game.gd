@@ -38,8 +38,11 @@ var swing_meter_value := 0.0
 var swing_timer := 0.0
 var game_over := false
 var inning_bottom := false
+var screen_shake := 0.0
+var shake_origin := Vector2.ZERO
 
 func _ready() -> void:
+	shake_origin = position
 	_build_field()
 	_build_hud()
 
@@ -252,6 +255,12 @@ func _process(delta: float) -> void:
 	if crowd_meter != null:
 		crowd_meter.tick(delta)
 
+	if screen_shake > 0.0:
+		position = shake_origin + Vector2(randf_range(-screen_shake, screen_shake), randf_range(-screen_shake, screen_shake))
+		screen_shake = max(0.0, screen_shake - delta * 30.0)
+	else:
+		position = shake_origin
+
 	if swing_window_active:
 		swing_timer += delta
 		swing_meter_value = sin(swing_timer * 6.0) * 0.5 + 0.5
@@ -371,6 +380,18 @@ func _trigger_player_celebration(hit_type: String) -> void:
 				crowd_meter.add_cheer(4.0)
 			batter_celebration.trigger_on_base()
 
+func _trigger_special_hit_fx() -> void:
+	if batcher_celebration != null:
+		batter_celebration.trigger_special_hit()
+	trigger_screen_shake(16.0)
+	if status_label != null:
+		var tween := create_tween()
+		tween.tween_property(status_label, "modulate", Color(1.3, 0.8, 0.5, 1.0), 0.08)
+		tween.tween_property(status_label, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.16)
+
+func trigger_screen_shake(amount: float) -> void:
+	screen_shake = max(screen_shake, amount)
+
 func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 	swing_window_active = false
 
@@ -417,8 +438,7 @@ func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 	if special_hit:
 		if crowd_meter != null:
 			crowd_meter.add_cheer(22.0)
-		if batter_celebration != null:
-			batter_celebration.trigger_special_hit()
+		_trigger_special_hit_fx()
 		if hit_type == "home_run":
 			result_text = "SPECIAL HOME RUN! The whole park erupts!"
 		elif hit_type == "triple":
