@@ -11,6 +11,7 @@ func _ready() -> void:
 	power_hitter.home_run_style = "bat_spin"
 	power_hitter.on_base_style = "arms_up"
 	power_hitter.slide_style = "scoot_left"
+	power_hitter.special_hit_style = "burst_jump"
 
 	var contact_hitter := PlayerProfile.new()
 	contact_hitter.id = "nina"
@@ -20,6 +21,7 @@ func _ready() -> void:
 	contact_hitter.home_run_style = "jump_pose"
 	contact_hitter.on_base_style = "dance_tap"
 	contact_hitter.slide_style = "scoot_right"
+	contact_hitter.special_hit_style = "spin_wave"
 
 	var flashy_runner := PlayerProfile.new()
 	flashy_runner.id = "zoe"
@@ -29,6 +31,7 @@ func _ready() -> void:
 	flashy_runner.home_run_style = "jump_pose"
 	flashy_runner.on_base_style = "dance_tap"
 	flashy_runner.slide_style = "scoot_left"
+	flashy_runner.special_hit_style = "burst_jump"
 
 	roster = [power_hitter, contact_hitter, flashy_runner]
 
