@@ -58,6 +58,15 @@ func trigger_slide() -> void:
 		_:
 			_play_default_slide()
 
+func trigger_special_hit() -> void:
+	match profile.special_hit_style:
+		"burst_jump":
+			_play_burst_jump()
+		"spin_wave":
+			_play_spin_wave()
+		_:
+			_play_default_special_hit()
+
 func _play_bat_spin() -> void:
 	var tween := create_tween()
 	tween.set_trans(Tween.TRANS_BACK)
@@ -99,6 +108,26 @@ func _play_slide_right() -> void:
 	tween.tween_property(self, "position:x", position.x + 26.0, 0.18)
 	tween.tween_property(self, "position:x", position.x, 0.24)
 
+func _play_burst_jump() -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "position:y", position.y - 36.0, 0.12)
+	tween.tween_property(self, "position:y", position.y, 0.18)
+	tween.parallel().tween_property(self, "scale", Vector2(1.22, 1.22), 0.15)
+	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.18)
+	particles.emitting = true
+	var reset := create_tween()
+	reset.tween_callback(func() -> void:
+		particles.emitting = false
+	).set_delay(0.28)
+
+func _play_spin_wave() -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "rotation_degrees", 180.0, 0.22)
+	tween.tween_property(self, "rotation_degrees", 0.0, 0.18)
+	tween.tween_property(self, "scale", Vector2(1.14, 1.14), 0.12)
+	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.18)
+	particles.emitting = true
+
 func _play_default_home_run() -> void:
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector2(1.15, 1.15), 0.12)
@@ -113,6 +142,12 @@ func _play_default_slide() -> void:
 	var tween := create_tween()
 	tween.tween_property(self, "position:x", position.x - 18.0, 0.12)
 	tween.tween_property(self, "position:x", position.x, 0.22)
+
+func _play_default_special_hit() -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "scale", Vector2(1.24, 1.24), 0.1)
+	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.2)
+	particles.emitting = true
 
 func _make_placeholder_texture() -> Texture2D:
 	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
