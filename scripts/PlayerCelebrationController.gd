@@ -11,16 +11,16 @@ func _ready() -> void:
 		add_child(sprite)
 	if particles == null:
 		particles = CPUParticles2D.new()
-		particles.amount = 18
-		particles.lifetime = 0.6
+		particles.amount = 32
+		particles.lifetime = 0.9
 		particles.spread = 60.0
-		particles.initial_velocity_min = 40.0
-		particles.initial_velocity_max = 90.0
-		particles.gravity = Vector2(0, 120)
+		particles.initial_velocity_min = 50.0
+		particles.initial_velocity_max = 110.0
+		particles.gravity = Vector2(0, 150)
 		particles.linear_accel_min = 0.0
-		particles.linear_accel_max = 8.0
+		particles.linear_accel_max = 10.0
 		particles.radial_accel_min = 0.0
-		particles.radial_accel_max = 8.0
+		particles.radial_accel_max = 10.0
 		particles.emitting = false
 		add_child(particles)
 
@@ -127,6 +127,10 @@ func _play_spin_wave() -> void:
 	tween.tween_property(self, "scale", Vector2(1.14, 1.14), 0.12)
 	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.18)
 	particles.emitting = true
+	var reset := create_tween()
+	reset.tween_callback(func() -> void:
+		particles.emitting = false
+	).set_delay(0.28)
 
 func _play_default_home_run() -> void:
 	var tween := create_tween()
@@ -148,6 +152,10 @@ func _play_default_special_hit() -> void:
 	tween.tween_property(self, "scale", Vector2(1.24, 1.24), 0.1)
 	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.2)
 	particles.emitting = true
+	var reset := create_tween()
+	reset.tween_callback(func() -> void:
+		particles.emitting = false
+	).set_delay(0.28)
 
 func _make_placeholder_texture() -> Texture2D:
 	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
