@@ -71,7 +71,7 @@ func _ready() -> void:
 		current_player_profile = batter_profile
 
 	if batter != null:
-		batter_celebration = preload("res://scripts/PlayerCelebrationController.gd").new()
+		batter_celebration = PlayerCelebrationController.new()
 		batter.add_child(batter_celebration)
 		batter_celebration.position = Vector2.ZERO
 		batter_celebration.set_profile(batter_profile)
@@ -380,17 +380,17 @@ func _trigger_player_celebration(hit_type: String) -> void:
 				crowd_meter.add_cheer(4.0)
 			batter_celebration.trigger_on_base()
 
+func trigger_screen_shake(amount: float) -> void:
+	screen_shake = max(screen_shake, amount)
+
 func _trigger_special_hit_fx() -> void:
-	if batcher_celebration != null:
+	if batter_celebration != null:
 		batter_celebration.trigger_special_hit()
 	trigger_screen_shake(16.0)
 	if status_label != null:
 		var tween := create_tween()
 		tween.tween_property(status_label, "modulate", Color(1.3, 0.8, 0.5, 1.0), 0.08)
 		tween.tween_property(status_label, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.16)
-
-func trigger_screen_shake(amount: float) -> void:
-	screen_shake = max(screen_shake, amount)
 
 func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 	swing_window_active = false
