@@ -17,6 +17,12 @@ var inning_label: Label
 var swing_meter: ProgressBar
 var bases_label: Label
 
+var crowd_meter: CrowdCheerMeter
+var batter_profile: PlayerProfile
+var batter_celebration: PlayerCelebrationController
+var roster: TeamRoster
+var current_player_profile: PlayerProfile
+
 var inning := 1
 var max_innings := 3
 var outs := 0
@@ -32,12 +38,44 @@ var swing_meter_value := 0.0
 var swing_timer := 0.0
 var game_over := false
 var inning_bottom := false
+var screen_shake := 0.0
+var shake_origin := Vector2.ZERO
 
 func _ready() -> void:
+	shake_origin = position
 	_build_field()
 	_build_hud()
+
 	commentary = preload("res://scripts/CommentaryManager.gd").new()
 	add_child(commentary)
+
+	crowd_meter = CrowdCheerMeter.new()
+	add_child(crowd_meter)
+
+	roster = TeamRoster.new()
+	add_child(roster)
+
+	if roster.roster.size() > 0:
+		current_player_profile = roster.roster[0]
+		batter_profile = current_player_profile
+	else:
+		batter_profile = PlayerProfile.new()
+		batter_profile.id = "player_01"
+		batter_profile.name = "MAYA"
+		batter_profile.jersey_color = Color("ffcc66")
+		batter_profile.accent_color = Color("2d6cdf")
+		batter_profile.home_run_style = "bat_spin"
+		batter_profile.on_base_style = "arms_up"
+		batter_profile.slide_style = "scoot_left"
+		batter_profile.special_hit_style = "burst_jump"
+		current_player_profile = batter_profile
+
+	if batter != null:
+		batter_celebration = PlayerCelebrationController.new()
+		batter.add_child(batter_celebration)
+		batter_celebration.position = Vector2.ZERO
+		batter_celebration.set_profile(batter_profile)
+
 	_set_commentary("Parents in the bleachers: 'This is the fun part!' ")
 	_update_hud()
 	_start_pitch_cycle()
@@ -214,6 +252,15 @@ func _process(delta: float) -> void:
 	if game_over:
 		return
 
+	if crowd_meter != null:
+		crowd_meter.tick(delta)
+
+	if screen_shake > 0.0:
+		position = shake_origin + Vector2(randf_range(-screen_shake, screen_shake), randf_range(-screen_shake, screen_shake))
+		screen_shake = max(0.0, screen_shake - delta * 30.0)
+	else:
+		position = shake_origin
+
 	if swing_window_active:
 		swing_timer += delta
 		swing_meter_value = sin(swing_timer * 6.0) * 0.5 + 0.5
@@ -234,8 +281,9 @@ func _handle_swing() -> void:
 
 	var timing_score: float = absf(swing_meter_value - 0.5)
 	var contact_quality := 1.0 - timing_score / 0.5
+	var special_hit := contact_quality >= 0.82
 	if contact_quality > 0.0:
-		_resolve_hit(_choose_hit_result(contact_quality))
+		_resolve_hit(_choose_hit_result(contact_quality), special_hit)
 	else:
 		_resolve_pitch_result(false)
 
@@ -276,7 +324,7 @@ func _resolve_pitch_result(made_contact: bool) -> void:
 	swing_window_active = false
 
 	if made_contact:
-		_resolve_hit(_choose_hit_result(0.5))
+		_resolve_hit(_choose_hit_result(0.5), true)
 		return
 
 	strikes += 1
@@ -298,10 +346,56 @@ func _resolve_pitch_result(made_contact: bool) -> void:
 	else:
 		_start_pitch_cycle()
 
-func _resolve_hit(hit_type: String) -> void:
+func _trigger_player_celebration(hit_type: String) -> void:
+	if batter_celebration == null:
+		return
+
+	match hit_type:
+		"home_run":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(30.0)
+			batter_celebration.trigger_home_run()
+		"triple":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(18.0)
+			batter_celebration.trigger_on_base()
+		"double":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(14.0)
+			batter_celebration.trigger_on_base()
+		"single":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(8.0)
+			batter_celebration.trigger_on_base()
+		"fly_ball":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(6.0)
+			batter_celebration.trigger_slide()
+		"ground_ball":
+			if crowd_meter != null:
+				crowd_meter.add_cheer(6.0)
+			batter_celebration.trigger_slide()
+		_:
+			if crowd_meter != null:
+				crowd_meter.add_cheer(4.0)
+			batter_celebration.trigger_on_base()
+
+func trigger_screen_shake(amount: float) -> void:
+	screen_shake = max(screen_shake, amount)
+
+func _trigger_special_hit_fx() -> void:
+	if batter_celebration != null:
+		batter_celebration.trigger_special_hit()
+	trigger_screen_shake(16.0)
+	if status_label != null:
+		var tween := create_tween()
+		tween.tween_property(status_label, "modulate", Color(1.3, 0.8, 0.5, 1.0), 0.08)
+		tween.tween_property(status_label, "modulate", Color(1.0, 1.0, 1.0, 1.0), 0.16)
+
+func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 	swing_window_active = false
 
-	var fielding_result := _resolve_fielding_result(hit_type)
+	var fielding_result := _resolve_fielding_result(hit_type)f
 	if fielding_result == "caught":
 		outs += 1
 		status_label.text = "Out! " + _fielding_call_text(hit_type)
@@ -340,8 +434,22 @@ func _resolve_hit(hit_type: String) -> void:
 			hit_strength = 1
 			result_text = "Hit!"
 
+	if special_hit:
+		if crowd_meter != null:
+			crowd_meter.add_cheer(22.0)
+		_trigger_special_hit_fx()
+		if hit_type == "home_run":
+			result_text = "SPECIAL HOME RUN! The whole park erupts!"
+		elif hit_type == "triple":
+			result_text = "SPECIAL TRIPLE! She is flying!"
+		elif hit_type == "double":
+			result_text = "SPECIAL DOUBLE! The crowd is roaring!"
+		else:
+			result_text = "SPECIAL HIT! This one's got juice!"
+
 	status_label.text = result_text
 	_advance_runners(hit_strength)
+	_trigger_player_celebration(hit_type)
 	_set_commentary("Teammates are screaming, 'That's a real hit!' ")
 	commentary.emit("A parent in the bleachers laughs, 'You can hear this whole town cheering!'", "parent")
 	_update_hud()
@@ -363,6 +471,17 @@ func _resolve_fielding_result(hit_type: String) -> String:
 			return "caught" if roll < 0.70 else "safe"
 		"ground_ball":
 			return "caught" if roll < 0.60 else "safe"
+			return "out" if roll < 0.12 else "safe"
+		"double":
+			return "out" if roll < 0.1 else "safe"
+		"triple":
+			return "out" if roll < 0.08 else "safe"
+		"home_run":
+			return "safe"
+		"fly_ball":
+			return "out" if roll < 0.7 else "safe"
+		"ground_ball":
+			return "out" if roll < 0.65 else "safe"
 		_:
 			return "safe"
 
@@ -410,6 +529,8 @@ func _advance_runners(hit_strength: int) -> void:
 
 	score[0] += runs_scored
 	if runs_scored > 0:
+		if crowd_meter != null:
+			crowd_meter.add_cheer(20.0)
 		commentary.emit("The score updates and the dugout is roaring.", "crowd")
 		_set_commentary("Someone in the stands yells, 'There it is! That's why we came!' ")
 
