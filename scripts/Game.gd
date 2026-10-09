@@ -395,13 +395,12 @@ func _trigger_special_hit_fx() -> void:
 func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 	swing_window_active = false
 
-	var fielding_outcome := _resolve_fielding_result(hit_type)
-
-	if fielding_outcome == "out":
+	var fielding_result := _resolve_fielding_result(hit_type)f
+	if fielding_result == "caught":
 		outs += 1
 		status_label.text = "Out! " + _fielding_call_text(hit_type)
-		_set_commentary("The infield turns it quick and the crowd exhales.")
-		commentary.emit("A fielder makes the play and the dugout holds its breath.", "teammate")
+		_set_commentary("The fielders lock it down and the crowd leans in.")
+		commentary.emit("A defender makes a clean play and the dugout exhales.", "teammate")
 		_update_hud()
 		if outs >= 3:
 			_advance_inning()
@@ -427,7 +426,7 @@ func _resolve_hit(hit_type: String, special_hit: bool = false) -> void:
 			result_text = "HOME RUN! The bleachers erupt!"
 		"fly_ball":
 			hit_strength = 1
-			result_text = "Fly ball falls in! Safe!"
+			result_text = "Lucky bounce! Safe!"
 		"ground_ball":
 			hit_strength = 1
 			result_text = "Grounder gets through! Safe!"
@@ -461,6 +460,17 @@ func _resolve_fielding_result(hit_type: String) -> String:
 
 	match hit_type:
 		"single":
+			return "caught" if roll < 0.15 else "safe"
+		"double":
+			return "caught" if roll < 0.12 else "safe"
+		"triple":
+			return "caught" if roll < 0.10 else "safe"
+		"home_run":
+			return "safe"
+		"fly_ball":
+			return "caught" if roll < 0.70 else "safe"
+		"ground_ball":
+			return "caught" if roll < 0.60 else "safe"
 			return "out" if roll < 0.12 else "safe"
 		"double":
 			return "out" if roll < 0.1 else "safe"
